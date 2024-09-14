@@ -1,8 +1,4 @@
-﻿using System.Net;
-using System.Net.Sockets;
-using System.Text;
-
-namespace Node
+﻿namespace Node
 {
     internal class Program
     {
@@ -11,17 +7,22 @@ namespace Node
             Console.Write("Input your nickname: ");
             var name = Console.ReadLine();
 
+            var node = new Node(name);
             try
             {
-                var node = new Node(name);
                 node.Start();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine(ex);
             }
+            finally
+            {
+                node.Dispose();
+            }
 
-            Console.Read();
+            Console.WriteLine("Bye! Press Any Key");
+            Console.ReadKey();
         }
     }
 }

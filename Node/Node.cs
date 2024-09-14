@@ -1,59 +1,78 @@
-﻿using System.IO.Pipes;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
 namespace Node
 {
-    public class Node
+    public class Node : IDisposable
     {
         private int _port;
         private string _name;
-        private UdpClient _udpClient;
+        private UdpClient _channel;
 
         public Node(string name)
         {
             _port = 5555;
             _name = name;
-            _udpClient = new UdpClient(_port);
+            _channel = new UdpClient();
+            _channel.EnableBroadcast = true;
+
+            _channel.Client.Bind(new IPEndPoint(IPAddress.Any, _port));
         }
 
         public void Start()
         {
-            Listen();
+            var cancelationTokenSource = new CancellationTokenSource();
+            var cancelationToken = cancelationTokenSource.Token;
 
-            while(true)
+            Listen(cancelationToken);
+
+            while (true)
             {
                 Console.Write("Input message: ");
                 var message = Console.ReadLine();
+
+                if (message.Equals("exit"))
+                    break;
 
                 var packet = new Packet { From = _name, Message = message };
                 var remotePoint = new IPEndPoint(IPAddress.Broadcast, _port);
 
                 SendString(packet.ToString(), remotePoint);
             }
+
+            cancelationTokenSource.Cancel();
         }
 
         private void SendString(string message, IPEndPoint target)
         {
             var data = Encoding.UTF8.GetBytes(message);
-            _udpClient.Send(data, target);
+            _channel.Send(data, target);
         }
 
-        private void Listen()
+        private void Listen(CancellationToken cancellationToken)
         {
             Task.Run(() =>
             {
                 var remoteHost = new IPEndPoint(IPAddress.Any, 0);
-                var result = _udpClient.Receive(ref remoteHost);
-                var message = Encoding.UTF8.GetString(result);
 
-                var packet = Packet.Parse(message);
+                while (true)
+                {
+                    var data = _channel.Receive(ref remoteHost);
 
-                //if(!packet.From.Equals(_name))
-                Console.WriteLine(message);
-            });
+                    var message = Encoding.UTF8.GetString(data);
+
+                    var packet = Packet.Parse(message);
+
+                    if (!packet.From.Equals(_name))
+                        Console.WriteLine(message);
+                }
+            }, cancellationToken);
         }
 
+        public void Dispose()
+        {
+            _channel.Dispose();
+        }
     }
 }
