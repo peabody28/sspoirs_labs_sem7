@@ -9,48 +9,105 @@ namespace Node
         private int _port;
         private string _name;
         private UdpClient _channel;
+        private List<MulticastGroup> _groups;
+        private CancellationTokenSource _cancellationTokenSource;
 
         public Node(string name)
         {
             _port = 5555;
             _name = name;
+            _groups = new List<MulticastGroup>();
+
             _channel = new UdpClient();
             _channel.EnableBroadcast = true;
-
             _channel.Client.Bind(new IPEndPoint(IPAddress.Any, _port));
+
+            _cancellationTokenSource = new CancellationTokenSource();
         }
 
         public void Start()
         {
-            var cancelationTokenSource = new CancellationTokenSource();
-            var cancelationToken = cancelationTokenSource.Token;
-
-            Listen(cancelationToken);
+            Listen();
 
             while (true)
             {
-                Console.Write("Input message: ");
-                var message = Console.ReadLine();
+                var action = GetAction();
 
-                if (message.Equals("exit"))
+                IPEndPoint remotePoint = null;
+                Packet packet = null;
+                string multicastGroupName = null;
+
+                if (action == SelectAction.EnterMulticastGroup || action == SelectAction.MulticastMessage || action == SelectAction.LeaveMulticastGroup)
+                {
+                    Console.Write("Input multicast group name: ");
+                    multicastGroupName = Console.ReadLine();
+                }
+
+                if(action == SelectAction.BroadcastMessage)
+                {
+                    remotePoint = new IPEndPoint(IPAddress.Broadcast, _port);
+                }
+                else if(action == SelectAction.MulticastMessage)
+                {
+                    var group = _groups.FirstOrDefault(g => g.Name.Equals(multicastGroupName));
+                    if (group == null)
+                        Console.WriteLine("Group not found");
+                    else
+                        remotePoint = group.Endpoint;
+                }
+                else if(action == SelectAction.EnterMulticastGroup)
+                {
+                    Console.Write("Input multicast group address: ");
+                    var ipAddress = IPAddress.Parse(Console.ReadLine());
+                    var endpoint = new IPEndPoint(ipAddress, _port);
+
+                    _groups.Add(new MulticastGroup(multicastGroupName, endpoint, _channel));
+                }
+                else if(action == SelectAction.LeaveMulticastGroup)
+                {
+                    var group = _groups.FirstOrDefault(g => g.Name.Equals(multicastGroupName));
+                    if (group == null)
+                        Console.WriteLine("Group not found");
+                    else
+                    {
+                        group.Leave(_channel);
+                        _groups.Remove(group);
+                    }
+                }
+
+                if (action == SelectAction.BroadcastMessage || action == SelectAction.MulticastMessage)
+                {
+                    Console.Write("Input message: ");
+                    var message = Console.ReadLine();
+                    packet = new Packet { From = _name, Message = message };
+
+                    var data = Encoding.UTF8.GetBytes(packet.ToString());
+                    _channel.Send(data, remotePoint);
+                }
+
+                if (action == SelectAction.Exit)
                     break;
-
-                var packet = new Packet { From = _name, Message = message };
-                var remotePoint = new IPEndPoint(IPAddress.Broadcast, _port);
-
-                SendString(packet.ToString(), remotePoint);
             }
 
-            cancelationTokenSource.Cancel();
+            _cancellationTokenSource.Cancel();
         }
 
-        private void SendString(string message, IPEndPoint target)
+        private SelectAction GetAction()
         {
-            var data = Encoding.UTF8.GetBytes(message);
-            _channel.Send(data, target);
+            Console.WriteLine();
+            Console.WriteLine("1 - broadcast message");
+            Console.WriteLine("2 - enter multicast group");
+            Console.WriteLine("3 - multicast message");
+            Console.WriteLine("4 - leave multicast group");
+            Console.WriteLine("5 - exit");
+            Console.Write("Input action: ");
+
+            var action = Convert.ToInt32(Console.ReadLine());
+
+            return (SelectAction)action;
         }
 
-        private void Listen(CancellationToken cancellationToken)
+        private void Listen()
         {
             Task.Run(() =>
             {
@@ -67,7 +124,7 @@ namespace Node
                     if (!packet.From.Equals(_name))
                         Console.WriteLine(message);
                 }
-            }, cancellationToken);
+            }, _cancellationTokenSource.Token);
         }
 
         public void Dispose()

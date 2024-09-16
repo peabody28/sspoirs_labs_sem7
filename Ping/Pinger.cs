@@ -4,6 +4,8 @@ namespace Ping
 {
     public class Pinger
     {
+        private const int _maxDataSize = 65499;
+
         private Dictionary<string, PingerContext> _pingers;
 
         public Pinger()
@@ -15,10 +17,9 @@ namespace Ping
         {
             var ping = new System.Net.NetworkInformation.Ping();
             var data = new byte[customOptions.DataSize];
-
+            
             while (true)
             {
-
                 var reply = ping.Send(address, timeout: 1000, data);
 
                 if(state.OutputAllowed)
@@ -32,7 +33,7 @@ namespace Ping
 
         public void Create(string name, IPAddress address)
         {
-            var customOptions = new CustomOptions { DataSize = 65499, Delay = 10 };
+            var customOptions = new CustomOptions { DataSize = _maxDataSize, Delay = 7 };
             var state = new PingerState { PingerName = name, OutputAllowed = false };
 
             var cancelTokenSource = new CancellationTokenSource();
