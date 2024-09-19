@@ -48,7 +48,7 @@ namespace Ping
 
         public void SwitchOutput(string name)
         {
-            if(!_pingers.TryGetValue(name, out var context))
+            if (!_pingers.TryGetValue(name, out var context))
             {
                 Console.WriteLine("No such pinger");
             }

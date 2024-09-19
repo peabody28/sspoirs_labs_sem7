@@ -21,7 +21,7 @@ namespace App
                     pingerName = Console.ReadLine();
                 }
 
-                if(action == SelectAction.StartPing || action == SelectAction.StartTraceroute)
+                if(action == SelectAction.StartPing || action == SelectAction.StartTraceroute || action == SelectAction.SmurfAttack)
                 {
                     Console.Write("Input target address: ");
                     address = IPAddress.Parse(Console.ReadLine());
@@ -50,7 +50,21 @@ namespace App
                 {
                     new Tracerouter().Start(address);
                 }
+                else if(action == SelectAction.SmurfAttack)
+                {
+                    Console.Write("Input router address: ");
+                    var dest = IPAddress.Parse(Console.ReadLine());
+
+                    new SmurfAttacker().Start(address, dest, TimeSpan.FromMicroseconds(10));
+                }
+                else if(action == SelectAction.Exit)
+                {
+                    break;
+                }
             }
+
+            Console.WriteLine("Press any key to exit....");
+            Console.ReadKey();
         }
 
         static SelectAction SelectActionMessage()
@@ -61,6 +75,8 @@ namespace App
             Console.WriteLine("3 - stop ping");
             Console.WriteLine("4 - pingers list");
             Console.WriteLine("5 - traceroute host");
+            Console.WriteLine("6 - smurf host");
+            Console.WriteLine("7 - exit");
             Console.Write("Input action: ");
 
             var action = Convert.ToInt32(Console.ReadLine());

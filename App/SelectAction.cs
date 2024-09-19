@@ -6,6 +6,8 @@
         SwitchPingConsole,
         StopPing,
         ListPingers,
-        StartTraceroute
+        StartTraceroute,
+        SmurfAttack,
+        Exit
     }
 }
